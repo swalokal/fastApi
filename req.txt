@@ -5,3 +5,4 @@ numpy
 sqlalchemy
 mysqlclient
 python-multipart
+pillow
