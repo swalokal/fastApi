@@ -5,6 +5,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import MySQLdb
+import methode
 # from sqlalchemy.orm import sessionmaker
 
 app = FastAPI()
@@ -19,36 +20,64 @@ db = MySQLdb.connect(
 )
 
 
+
+from fastapi import HTTPException
+
 @app.get("/all")
-def get_data():
+def get_all_data():
+    mydict = methode.allin()
     cursor = db.cursor()
     cursor.execute("SELECT produk_toko.id,produk.produk_name,produk.price,toko.name,toko.longtitude,toko.latitiude FROM produk_toko INNER JOIN toko ON produk_toko.toko_id = toko.id INNER JOIN produk ON produk_toko.produk_id = produk.id")
     result = cursor.fetchall()
-    return {"data": result}
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Data tidak ditemukan")
+
+    mydict.add(result)
+    return mydict.data
 
 
 @app.get("/toko")
-def get_data():
+def get_toko_data():
+    mydict = methode.toko()
     cursor = db.cursor()
     cursor.execute("SELECT * FROM toko")
     result = cursor.fetchall()
-    return {"data": result}
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Data toko tidak ditemukan")
+
+    mydict.add(result)
+    return mydict.data
 
 
 @app.get("/produk")
-def get_data():
+def get_produk_data():
+    mydict = methode.product()
     cursor = db.cursor()
     cursor.execute("SELECT * FROM `produk`")
     result = cursor.fetchall()
-    return {"data": result}
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Data produk tidak ditemukan")
+
+    mydict.add(result)
+    return mydict.data
 
 
 @app.get("/all/{produk}")
-def get_data(produk: str):
+def get_specific_data(produk: str):
+    mydict = methode.allin()
     cursor = db.cursor()
     cursor.execute("SELECT produk_toko.id,produk.produk_name,produk.price,toko.name,toko.longtitude,toko.latitiude FROM produk_toko INNER JOIN toko ON produk_toko.toko_id = toko.id INNER JOIN produk ON produk_toko.produk_id = produk.id WHERE produk.produk_name = '"+produk+"'")
     result = cursor.fetchall()
-    return {"data": result}
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
+
+    mydict.add(result)
+    return mydict.data
+
 
 
 @app.post("/make-predictions")
@@ -70,10 +99,12 @@ async def make_predictions(file: UploadFile = File(...)):
         predictions = model_fn(tf.constant(input_data))
         class_index = tf.argmax(predictions["dense"], axis=1).numpy()[0]
         class_label = classes[class_index]
+        mydict = methode.allin()
         cursor = db.cursor()
         cursor.execute("SELECT produk_toko.id,produk.produk_name,produk.price,toko.name,toko.longtitude,toko.latitiude FROM produk_toko INNER JOIN toko ON produk_toko.toko_id = toko.id INNER JOIN produk ON produk_toko.produk_id = produk.id WHERE produk.produk_name = '"+class_label+"'")
         result = cursor.fetchall()
-        return {"prediction": result}
+        mydict.add(result)
+        return mydict.data
 
     except Exception as e:
         return {"error": str(e)}
